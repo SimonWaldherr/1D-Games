@@ -8,19 +8,24 @@ import micropython
 # Configuration
 # ---------------------------------------------------------------------------
 
+print(machine.freq())
+machine.freq(220000000)
+print(machine.freq())
+
 LED_COUNT = 144
 PIN_NUM = 0
 
 # Initial speed settings
+MAX_SPEED = 25
 BASE_SPEED = 15
-MIN_SPEED = 3
+MIN_SPEED = 0
 
 # Initial zone length
-INITIAL_ZONE_LENGTH = 20
-MIN_ZONE_LENGTH = 10
+INITIAL_ZONE_LENGTH = 15
+MIN_ZONE_LENGTH = 5
 
 # After every 10 hits, zone length shortens by 1
-HITS_PER_ZONE_REDUCTION = 10
+HITS_PER_ZONE_REDUCTION = 5
 
 # Colors (R, G, B)
 PLAYER1_COLOR = (0, 0, 255)        # Blue
@@ -28,7 +33,7 @@ PLAYER2_COLOR = (255, 0, 0)        # Red
 BALL_COLOR = (255, 255, 255)       # White
 BACKGROUND_COLOR = (1, 1, 1)       # Dim background
 
-BRIGHTNESS = 0.3
+BRIGHTNESS = 0.8
 
 # Game states
 IDLE = 0
@@ -103,6 +108,7 @@ pixel_array = array.array("I", [0] * LED_COUNT)
 state_mach = rp2.StateMachine(0, ws2812, freq=8_000_000, sideset_base=Pin(PIN_NUM))
 state_mach.active(1)
 
+@micropython.native
 def update_pixels(brightness_input=BRIGHTNESS):
     dimmer_array = array.array(
         "I",
@@ -157,9 +163,12 @@ def compute_new_speed(ball_pos, direction, zone_length):
         # Deeper means closer to 0, front means closer to zone_length-1
         zone_depth = (zone_length - 1) - ball_pos
 
+    #print(zone_depth)
+    
     max_depth = zone_length - 1
     factor = zone_depth / max_depth
-    speed = BASE_SPEED - factor * (BASE_SPEED - MIN_SPEED)
+    #speed = BASE_SPEED - factor * (BASE_SPEED - MIN_SPEED)
+    speed = MAX_SPEED - factor * (MAX_SPEED - MIN_SPEED)
     return int(speed)
 
 def blink_ball(ball_pos, duration=2.0, blink_interval=0.3, zone_length=INITIAL_ZONE_LENGTH, 
@@ -223,6 +232,7 @@ def draw_scoreboard(player1_score, player2_score):
         set_led(right_pos, PLAYER2_COLOR)
         right_pos += 1
 
+@micropython.native
 def draw_field(zone_length, player1_score, player2_score):
     """
     Redraw the entire field:
@@ -233,12 +243,8 @@ def draw_field(zone_length, player1_score, player2_score):
     """
     set_all(BACKGROUND_COLOR)
 
-    # Draw Player 1 zone (left)
     for i in range(zone_length):
         set_led(i, PLAYER1_COLOR)
-
-    # Draw Player 2 zone (right)
-    for i in range(zone_length):
         set_led(LED_COUNT - 1 - i, PLAYER2_COLOR)
 
     # Draw scoreboard if any points have been scored
@@ -257,7 +263,6 @@ def main():
     player2_score = 0
 
     # Initial conditions
-    game_state = IDLE
     ball_pos = LED_COUNT // 2
     ball_direction = 1
     current_speed = BASE_SPEED
@@ -268,6 +273,10 @@ def main():
     draw_field(zone_length, player1_score, player2_score)
     set_led(ball_pos, BALL_COLOR)
     update_pixels()
+    
+    time.sleep_ms(100)
+    
+    game_state = IDLE
 
     while True:
         p1_c, p1_z = nunchucks[0].buttons()
@@ -371,3 +380,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
